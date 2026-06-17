@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Voice2Image | Нейросетевое преобразование голоса в изображение</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Анимированный фон -->
+        <div class="animated-bg">
+            <div class="gradient-sphere sphere-1"></div>
+            <div class="gradient-sphere sphere-2"></div>
+            <div class="gradient-sphere sphere-3"></div>
+        </div>
+
+        <!-- Боковая панель -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-microphone-alt"></i>
+                    <i class="fas fa-magic"></i>
+                </div>
+                <h1>Voice<span>2</span>Image</h1>
+                <p>Голос → Текст → Изображение</p>
+            </div>
+
+            <div class="qr-section">
+                <div class="qr-header">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Открыть на телефоне</span>
+                </div>
+                <div id="qrcode" class="qr-code"></div>
+                <div class="url-box" id="currentUrl">Загрузка...</div>
+                <button class="copy-btn" onclick="copyUrl()">
+                    <i class="fas fa-copy"></i>
+                    <span>Скопировать ссылку</span>
+                </button>
+            </div>
+
+            <div class="model-info">
+                <div class="info-item">
+                    <i class="fas fa-microphone"></i>
+                    <div>
+                        <strong>Распознавание</strong>
+                        <span>Whisper (faster-whisper)</span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-palette"></i>
+                    <div>
+                        <strong>Генерация</strong>
+                        <span>Stable Diffusion</span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-language"></i>
+                    <div>
+                        <strong>Язык</strong>
+                        <span>Русский / English</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Основной контент -->
+        <main class="main-content">
+            <!-- Ввод голоса -->
+            <div class="card voice-card">
+                <div class="card-header">
+                    <div class="header-icon gradient-bg">
+                        <i class="fas fa-microphone-alt"></i>
+                    </div>
+                    <h2>Шаг 1. Запись голоса</h2>
+                </div>
+                
+                <div class="voice-controls">
+                    <button id="recordBtn" class="btn record-btn">
+                        <i class="fas fa-circle"></i>
+                        <span>Начать запись</span>
+                    </button>
+                    <button id="stopRecordBtn" class="btn stop-btn" disabled>
+                        <i class="fas fa-stop"></i>
+                        <span>Остановить</span>
+                    </button>
+                </div>
+                <div id="recordingStatus" class="status-badge"></div>
+
+                <div class="divider">
+                    <span>или</span>
+                </div>
+
+                <div class="file-upload">
+                    <label class="upload-label" id="fileUploadLabel">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Нажмите или перетащите файл</span>
+                        <small>MP3, WAV, M4A, OGG до 50MB</small>
+                        <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,.ogg,.webm" hidden>
+                    </label>
+                    <button id="uploadBtn" class="btn upload-btn">
+                        <i class="fas fa-upload"></i>
+                        <span>Распознать файл</span>
+                    </button>
+                    <div id="uploadStatus" class="status-badge"></div>
+                </div>
+            </div>
+
+            <!-- Распознанный текст -->
+            <div class="card text-card">
+                <div class="card-header">
+                    <div class="header-icon gradient-bg">
+                        <i class="fas fa-comment-dots"></i>
+                    </div>
+                    <h2>Шаг 2. Распознанный текст</h2>
+                    <button id="clearTextBtn" class="icon-btn" title="Очистить">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <textarea id="recognizedText" rows="3" placeholder="Скажите что-нибудь или загрузите аудиофайл..."></textarea>
+            </div>
+
+            <!-- Генерация изображения -->
+            <div class="card gen-card">
+                <div class="card-header">
+                    <div class="header-icon gradient-bg">
+                        <i class="fas fa-feather-alt"></i>
+                    </div>
+                    <h2>Шаг 3. Генерация изображения</h2>
+                </div>
+                
+                <div class="prompt-area">
+                    <textarea id="promptText" rows="2" placeholder="Промпт для генерации..."></textarea>
+                </div>
+
+                <div class="gen-controls">
+                    <button id="generateBtn" class="btn generate-btn">
+                        <i class="fas fa-magic"></i>
+                        <span>Сгенерировать</span>
+                    </button>
+                    <button id="generateFastBtn" class="btn fast-btn">
+                        <i class="fas fa-bolt"></i>
+                        <span>Быстро</span>
+                    </button>
+                </div>
+
+                <div id="generationStatus" class="status-badge"></div>
+
+                <div class="result-area">
+                    <div id="imageContainer" class="image-container">
+                        <div class="placeholder">
+                            <div class="placeholder-icon">
+                                <i class="fas fa-palette"></i>
+                                <i class="fas fa-arrow-right"></i>
+                                <i class="fas fa-image"></i>
+                            </div>
+                            <p>Изображение появится здесь</p>
+                            <span>Скажите фразу и нажмите «Сгенерировать»</span>
+                        </div>
+                    </div>
+                    <button id="downloadBtn" class="btn download-btn" style="display: none;">
+                        <i class="fas fa-download"></i>
+                        <span>Скачать изображение</span>
+                    </button>
+                </div>
+            </div>
+
+            <footer>
+                <p>Voice to Image Generator | Работает на Hugging Face моделях</p>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Toast уведомления -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        // Отображение URL и QR-кода
+        function displayUrlAndQR() {
+            const url = window.location.href;
+            const urlElement = document.getElementById('currentUrl');
+            if (urlElement) urlElement.textContent = url;
+            
+            const qrContainer = document.getElementById('qrcode');
+            if (qrContainer && url) {
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: url,
+                    width: 120,
+                    height: 120,
+                    colorDark: "#1a1a2e",
+                    colorLight: "#ffffff"
+                });
+            }
+        }
+        
+        function copyUrl() {
+            const url = document.getElementById('currentUrl')?.textContent;
+            if (url) {
+                navigator.clipboard.writeText(url);
+                const btn = event.target.closest('.copy-btn');
+                if (btn) {
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i><span>Скопировано!</span>';
+                    setTimeout(() => btn.innerHTML = originalText, 2000);
+                }
+            }
+        }
+        
+        window.addEventListener('load', displayUrlAndQR);
+    </script>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
